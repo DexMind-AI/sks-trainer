@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ⚓ SKS Trainer
 
-## Getting Started
+Mobile-first web app for preparing for the German SKS (Sportküstenschifferschein) theory exam with minimum study effort.
 
-First, run the development server:
+## Features
+
+- **638 Official Questions** — Complete ELWIS question catalog parsed and included
+- **Spaced Repetition** — Leitner system (5 boxes) to focus on what you don't know
+- **Flashcard Mode** — Show question → reveal answer → self-rate (Nochmal/Schwer/Gut/Leicht)
+- **Exam Simulation** — 30 questions, 90 min timer, authentic scoring (bestanden/mündlich/nicht bestanden)
+- **Progress Dashboard** — Per-section mastery, streak counter, daily goals
+- **Question Browser** — Search and browse all questions with answers
+- **PWA Support** — Install on your phone, works offline
+- **Data Export/Import** — Never lose your progress
+
+## Sections
+
+| Section | Questions |
+|---------|-----------|
+| Navigation | 118 |
+| Schifffahrtsrecht | 110 |
+| Wetterkunde | 101 |
+| Seemannschaft I (Segel+Motor) | 163 |
+| Seemannschaft II (Motor) | 146 |
+
+## Tech Stack
+
+- Next.js 16 with App Router
+- TypeScript
+- Tailwind CSS v4
+- LocalStorage for persistence
+- Static site (no backend needed)
+
+## Development
 
 ```bash
+npm install --include=dev
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Build & Deploy
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build
+npm start
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Docker
 
-## Learn More
+```bash
+docker build -t sks-trainer .
+docker run -p 3000:3000 sks-trainer
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Exam Format
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- 30 questions: 9 Navigation, 7 Recht, 5 Wetter, 9 Seemannschaft
+- Max 60 points (2 per question)
+- ≥39 points: **Bestanden**
+- 33-38 points: **Mündliche Nachprüfung**
+- <33 points: **Nicht bestanden**
+- Time limit: 90 minutes

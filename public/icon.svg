@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="64" fill="#1a3a6b"/>
+  <text x="256" y="300" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="160" fill="white">SKS</text>
+  <text x="256" y="380" text-anchor="middle" font-family="Arial, sans-serif" font-size="60" fill="#91a7ff">⚓</text>
+</svg>
