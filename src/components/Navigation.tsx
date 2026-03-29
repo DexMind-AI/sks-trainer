@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 const navItems = [
   { href: '/', label: 'Start', icon: '🏠' },
   { href: '/lernen', label: 'Lernen', icon: '📚' },
+  { href: '/navigation', label: 'Navigation', icon: '🧭' },
   { href: '/fragen', label: 'Fragen', icon: '🔍' },
   { href: '/pruefung', label: 'Prüfung', icon: '📝' },
   { href: '/statistik', label: 'Statistik', icon: '📊' },
@@ -23,7 +24,7 @@ export default function Navigation() {
             <Link
               key={href}
               href={href}
-              className={`flex flex-col items-center py-2 px-3 min-w-[60px] transition-colors ${
+              className={`flex flex-col items-center py-2 px-2 min-w-[50px] transition-colors ${
                 active
                   ? 'text-navy-600 dark:text-blue-400'
                   : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
