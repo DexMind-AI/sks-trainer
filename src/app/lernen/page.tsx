@@ -5,12 +5,16 @@ import { useSearchParams } from 'next/navigation';
 import { catalog, Question } from '@/data/questions';
 import { Rating, CardProgress, updateCard, isDue, createNewCard } from '@/lib/leitner';
 import { getAllProgress, getCardProgress, saveCardProgress, recordReview } from '@/lib/storage';
+import { getExamRelevantQuestions, getHighValueQuestions, isNeverTested, EXAM_RELEVANT_COUNT } from '@/lib/exam-relevance';
 import Flashcard from '@/components/Flashcard';
 import Link from 'next/link';
 
 function LernenContent() {
   const searchParams = useSearchParams();
   const sectionFilter = searchParams.get('section');
+  const mode = searchParams.get('mode'); // 'minimal' for exam-relevant only
+
+  const isMinimalMode = mode === 'minimal';
 
   const [queue, setQueue] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -22,7 +26,14 @@ function LernenContent() {
     const progress = getAllProgress();
     let questions: Question[];
 
-    if (sectionFilter) {
+    if (isMinimalMode) {
+      // Minimal mode: only exam-relevant questions, high-value first
+      const highValue = getHighValueQuestions();
+      const examRelevant = getExamRelevantQuestions();
+      const highValueIds = new Set(highValue.map(q => q.id));
+      const otherRelevant = examRelevant.filter(q => !highValueIds.has(q.id));
+      questions = [...highValue, ...otherRelevant];
+    } else if (sectionFilter) {
       const section = catalog.sections.find(s => s.id === sectionFilter);
       questions = section ? section.questions : [];
     } else {
@@ -31,13 +42,13 @@ function LernenContent() {
 
     // Prioritize: due cards first, then unseen, then by box (lowest first)
     const now = Date.now();
-    const scored = questions.map(q => {
+    const scored = questions.map((q, originalIndex) => {
       const p = progress[q.id];
       let priority = 0;
 
       if (!p) {
-        // Unseen - high priority
-        priority = 100;
+        // Unseen - high priority, but in minimal mode preserve high-value ordering
+        priority = isMinimalMode ? 100 + (originalIndex < 42 ? 50 : 0) : 100;
       } else if (isDue(p, now)) {
         // Due for review - highest priority, lower box = more urgent
         priority = 200 - p.box * 10;
@@ -58,7 +69,7 @@ function LernenContent() {
     // Take top 50 for this session
     const sessionQueue = scored.slice(0, 50).map(s => s.question);
     return sessionQueue;
-  }, [sectionFilter]);
+  }, [sectionFilter, isMinimalMode]);
 
   useEffect(() => {
     const q = buildQueue();
@@ -84,7 +95,6 @@ function LernenContent() {
     // If rated "nochmal", add back to queue
     if (rating === 'nochmal') {
       const newQueue = [...queue];
-      // Insert the question again a few cards later
       const insertAt = Math.min(currentIndex + 3 + Math.floor(Math.random() * 3), newQueue.length);
       newQueue.splice(insertAt, 0, queue[currentIndex]);
       setQueue(newQueue);
@@ -99,9 +109,13 @@ function LernenContent() {
     }
   };
 
-  const sectionName = sectionFilter
-    ? catalog.sections.find(s => s.id === sectionFilter)?.name || 'Unbekannt'
-    : 'Alle Bereiche';
+  const sectionName = isMinimalMode
+    ? '🎯 Minimal-Modus'
+    : sectionFilter
+      ? catalog.sections.find(s => s.id === sectionFilter)?.name || 'Unbekannt'
+      : 'Alle Bereiche';
+
+  const totalLabel = isMinimalMode ? EXAM_RELEVANT_COUNT : undefined;
 
   if (queue.length === 0) {
     return (
@@ -111,8 +125,9 @@ function LernenContent() {
           Alles gelernt!
         </h2>
         <p className="text-slate-500 dark:text-slate-400 mb-6">
-          Es gibt gerade keine Fragen zur Wiederholung.
-          Komm später wieder!
+          {isMinimalMode
+            ? 'Alle prüfungsrelevanten Fragen sind gelernt. Komm später zur Wiederholung!'
+            : 'Es gibt gerade keine Fragen zur Wiederholung. Komm später wieder!'}
         </p>
         <Link
           href="/"
@@ -137,6 +152,11 @@ function LernenContent() {
         <h2 className="text-xl font-bold text-slate-700 dark:text-slate-200 mb-2">
           Sitzung beendet!
         </h2>
+        {isMinimalMode && (
+          <p className="text-sm text-amber-600 dark:text-amber-400 mb-2">
+            🎯 Minimal-Modus — nur prüfungsrelevante Fragen
+          </p>
+        )}
         <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 mt-4 max-w-xs mx-auto">
           <div className="grid grid-cols-2 gap-4 text-center">
             <div>
@@ -188,6 +208,15 @@ function LernenContent() {
           {sessionStats.reviewed} gelernt
         </span>
       </div>
+
+      {/* Minimal mode indicator */}
+      {isMinimalMode && (
+        <div className="mb-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2 border border-amber-200 dark:border-amber-800">
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            🎯 Nur prüfungsrelevante Fragen — {EXAM_RELEVANT_COUNT} statt 638
+          </p>
+        </div>
+      )}
 
       {/* Flashcard */}
       {currentQuestion && (

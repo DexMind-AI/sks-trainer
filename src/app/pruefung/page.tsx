@@ -4,12 +4,15 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Question } from '@/data/questions';
 import { generateRandomExam, getExamResult, EXAM_TIME_LIMIT, ExamSheet } from '@/lib/exam';
 import { saveExamResult, getExamHistory, ExamResult } from '@/lib/storage';
+import { getOfficialBogen, getAllBogenNumbers, getRandomBogenNumber, getRelevanceBadge, getBoegen } from '@/lib/exam-relevance';
 import Link from 'next/link';
 
 type ExamPhase = 'setup' | 'running' | 'review';
+type ExamMode = 'random' | 'official';
 
 export default function PruefungPage() {
   const [phase, setPhase] = useState<ExamPhase>('setup');
+  const [examMode, setExamMode] = useState<ExamMode>('official');
   const [exam, setExam] = useState<ExamSheet | null>(null);
   const [currentQ, setCurrentQ] = useState(0);
   const [scores, setScores] = useState<number[]>([]);
@@ -17,6 +20,8 @@ export default function PruefungPage() {
   const [showAnswer, setShowAnswer] = useState(false);
   const [examHistory, setExamHistory] = useState<ExamResult[]>([]);
   const [seemType, setSeemType] = useState<'1' | '2' | 'random'>('random');
+  const [selectedBogen, setSelectedBogen] = useState<number | null>(null);
+  const [lastCompletedBogen, setLastCompletedBogen] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -29,7 +34,6 @@ export default function PruefungPage() {
       timerRef.current = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
-            // Time's up
             if (timerRef.current) clearInterval(timerRef.current);
             return 0;
           }
@@ -42,8 +46,29 @@ export default function PruefungPage() {
     }
   }, [phase, timeLeft]);
 
-  const startExam = () => {
-    const newExam = generateRandomExam(seemType);
+  const startExam = (bogenNum?: number) => {
+    let newExam: ExamSheet;
+    
+    if (bogenNum !== undefined) {
+      // Official bogen
+      const questions = getOfficialBogen(bogenNum);
+      newExam = {
+        id: `bogen-${bogenNum}-${Date.now()}`,
+        name: `Prüfungsbogen ${bogenNum}`,
+        questions,
+      };
+    } else if (examMode === 'official' && selectedBogen !== null) {
+      const actualBogen = selectedBogen === 0 ? getRandomBogenNumber() : selectedBogen;
+      const questions = getOfficialBogen(actualBogen);
+      newExam = {
+        id: `bogen-${actualBogen}-${Date.now()}`,
+        name: `Prüfungsbogen ${actualBogen}`,
+        questions,
+      };
+    } else {
+      newExam = generateRandomExam(seemType);
+    }
+    
     setExam(newExam);
     setCurrentQ(0);
     setScores([]);
@@ -83,6 +108,12 @@ export default function PruefungPage() {
       })) || [],
     };
 
+    // Track which bogen was completed
+    const bogenMatch = exam?.name.match(/Prüfungsbogen (\d+)/);
+    if (bogenMatch) {
+      setLastCompletedBogen(parseInt(bogenMatch[1]));
+    }
+
     saveExamResult(examResult);
     setExamHistory(prev => [...prev, examResult]);
     setPhase('review');
@@ -93,6 +124,8 @@ export default function PruefungPage() {
     const s = seconds % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
+
+  const bogenNumbers = getAllBogenNumbers();
 
   // Setup phase
   if (phase === 'setup') {
@@ -111,32 +144,99 @@ export default function PruefungPage() {
           </ul>
         </div>
 
+        {/* Mode selector */}
         <div className="bg-white dark:bg-slate-800 rounded-xl p-5 border border-slate-200 dark:border-slate-700">
-          <h2 className="font-semibold text-slate-700 dark:text-slate-200 mb-3">Seemannschaft</h2>
-          <div className="flex gap-2">
-            {[
-              { value: 'random' as const, label: 'Zufall' },
-              { value: '1' as const, label: 'I (Segel+Motor)' },
-              { value: '2' as const, label: 'II (Motor)' },
-            ].map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => setSeemType(opt.value)}
-                className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-colors ${
-                  seemType === opt.value
-                    ? 'bg-navy-600 text-white'
-                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+          <h2 className="font-semibold text-slate-700 dark:text-slate-200 mb-3">Art wählen</h2>
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={() => setExamMode('official')}
+              className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-medium transition-colors ${
+                examMode === 'official'
+                  ? 'bg-navy-600 text-white'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              📋 Offizieller Bogen
+            </button>
+            <button
+              onClick={() => setExamMode('random')}
+              className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-medium transition-colors ${
+                examMode === 'random'
+                  ? 'bg-navy-600 text-white'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              🎲 Zufallsbogen
+            </button>
           </div>
+
+          {examMode === 'official' && (
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                Übe mit den 15 offiziellen Prüfungsbögen — exakt die Fragen aus der echten Prüfung.
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                <button
+                  onClick={() => setSelectedBogen(0)}
+                  className={`py-2 px-2 rounded-lg text-xs font-medium transition-colors col-span-4 ${
+                    selectedBogen === 0
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                  }`}
+                >
+                  🎲 Zufälliger Bogen
+                </button>
+                {bogenNumbers.map(num => (
+                  <button
+                    key={num}
+                    onClick={() => setSelectedBogen(num)}
+                    className={`py-2.5 px-2 rounded-lg text-xs font-medium transition-colors ${
+                      selectedBogen === num
+                        ? 'bg-navy-600 text-white'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    Bogen {num}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {examMode === 'random' && (
+            <div>
+              <h3 className="text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Seemannschaft</h3>
+              <div className="flex gap-2">
+                {[
+                  { value: 'random' as const, label: 'Zufall' },
+                  { value: '1' as const, label: 'I (Segel+Motor)' },
+                  { value: '2' as const, label: 'II (Motor)' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setSeemType(opt.value)}
+                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-colors ${
+                      seemType === opt.value
+                        ? 'bg-navy-600 text-white'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <button
-          onClick={startExam}
-          className="w-full py-4 bg-navy-600 hover:bg-navy-700 text-white font-bold rounded-xl text-lg shadow-md active:scale-[0.98] transition-all"
+          onClick={() => startExam()}
+          disabled={examMode === 'official' && selectedBogen === null}
+          className={`w-full py-4 font-bold rounded-xl text-lg shadow-md active:scale-[0.98] transition-all ${
+            examMode === 'official' && selectedBogen === null
+              ? 'bg-slate-300 dark:bg-slate-600 text-slate-500 cursor-not-allowed'
+              : 'bg-navy-600 hover:bg-navy-700 text-white'
+          }`}
         >
           Prüfung starten
         </button>
@@ -153,7 +253,7 @@ export default function PruefungPage() {
                 >
                   <div>
                     <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                      {result.score}/{result.maxScore} Punkte
+                      {result.sheetName} — {result.score}/{result.maxScore} Punkte
                     </p>
                     <p className="text-xs text-slate-400">
                       {new Date(result.date).toLocaleDateString('de-DE')} • {formatTime(result.timeUsed)}
@@ -176,23 +276,25 @@ export default function PruefungPage() {
   // Running phase
   if (phase === 'running' && exam) {
     const question = exam.questions[currentQ];
-    const timeWarning = timeLeft < 300; // < 5 min
+    const timeWarning = timeLeft < 300;
     const timeOut = timeLeft <= 0;
 
     if (timeOut && scores.length < exam.questions.length) {
-      // Auto-score remaining as 0
       const remaining = exam.questions.length - scores.length;
       const finalScores = [...scores, ...Array(remaining).fill(0)];
       finishExam(finalScores);
       return null;
     }
 
+    const badge = getRelevanceBadge(question.id);
+    const boegen = getBoegen(question.id);
+
     return (
       <div className="py-4">
         {/* Timer and progress */}
         <div className="flex items-center justify-between mb-4">
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            Frage {currentQ + 1}/30
+            Frage {currentQ + 1}/{exam.questions.length}
           </span>
           <span className={`text-sm font-mono font-bold ${timeWarning ? 'text-red-500 animate-pulse' : 'text-slate-600 dark:text-slate-300'}`}>
             ⏱ {formatTime(timeLeft)}
@@ -206,13 +308,22 @@ export default function PruefungPage() {
         <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mb-6">
           <div
             className="h-full bg-navy-600 rounded-full transition-all duration-300"
-            style={{ width: `${((currentQ) / 30) * 100}%` }}
+            style={{ width: `${((currentQ) / exam.questions.length) * 100}%` }}
           />
         </div>
 
         {/* Question */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
-          <div className="text-xs text-slate-400 dark:text-slate-500 mb-2">{question.id}</div>
+          {/* Relevance badge */}
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className="text-xs text-slate-400 dark:text-slate-500">{question.id}</span>
+            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full text-[10px] font-medium ${badge.color} ${badge.textColor}`}>
+              {badge.emoji} {badge.label}
+            </span>
+            {boegen.length > 0 && (
+              <span className="text-[10px] text-slate-400">Bogen {boegen.join(', ')}</span>
+            )}
+          </div>
           <p className="text-lg font-medium text-slate-900 dark:text-white leading-relaxed">
             {question.question}
           </p>
@@ -272,6 +383,7 @@ export default function PruefungPage() {
   // Review phase
   if (phase === 'review' && exam) {
     const result = getExamResult(scores);
+    const nextBogen = lastCompletedBogen !== null && lastCompletedBogen < 15 ? lastCompletedBogen + 1 : null;
 
     return (
       <div className="py-6 space-y-6">
@@ -281,6 +393,7 @@ export default function PruefungPage() {
             {result.passed ? '🎉' : result.oralExam ? '😅' : '😔'}
           </span>
           <h2 className={`text-2xl font-bold ${result.color}`}>{result.label}</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{exam.name}</p>
           <p className="text-4xl font-bold text-slate-900 dark:text-white mt-2">
             {result.totalScore}/{result.maxScore}
           </p>
@@ -305,6 +418,29 @@ export default function PruefungPage() {
           </div>
         </div>
 
+        {/* Next Bogen suggestion */}
+        {nextBogen && (
+          <button
+            onClick={() => {
+              setSelectedBogen(nextBogen);
+              startExam(nextBogen);
+            }}
+            className="w-full bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800 text-left"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-xl">👉</span>
+              <div>
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                  Weiter mit Prüfungsbogen {nextBogen}
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Nächsten offiziellen Bogen üben
+                </p>
+              </div>
+            </div>
+          </button>
+        )}
+
         {/* Wrong answers review */}
         {scores.some(s => s < 2) && (
           <div>
@@ -314,6 +450,7 @@ export default function PruefungPage() {
             <div className="space-y-2">
               {exam.questions.map((q, i) => {
                 if (scores[i] === 2) return null;
+                const qBadge = getRelevanceBadge(q.id);
                 return (
                   <div key={q.id} className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
                     <div className="flex items-start gap-2">
@@ -321,6 +458,11 @@ export default function PruefungPage() {
                         {scores[i]}P
                       </span>
                       <div>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full text-[10px] font-medium ${qBadge.color} ${qBadge.textColor}`}>
+                            {qBadge.emoji} {qBadge.label}
+                          </span>
+                        </div>
                         <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{q.question}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 whitespace-pre-line">{q.answer}</p>
                       </div>
@@ -339,6 +481,7 @@ export default function PruefungPage() {
               setPhase('setup');
               setExam(null);
               setScores([]);
+              setLastCompletedBogen(null);
             }}
             className="flex-1 py-3 bg-navy-600 text-white rounded-xl font-semibold"
           >

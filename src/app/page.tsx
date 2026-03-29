@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { catalog } from '@/data/questions';
 import { getAllProgress, getStats } from '@/lib/storage';
 import { CardProgress } from '@/lib/leitner';
+import { EXAM_RELEVANT_COUNT, TOTAL_QUESTIONS, getSectionRelevanceCount, isNeverTested } from '@/lib/exam-relevance';
 import SectionCard from '@/components/SectionCard';
 import ProgressBar from '@/components/ProgressBar';
 import Link from 'next/link';
@@ -19,11 +20,15 @@ export default function HomePage() {
     setMounted(true);
   }, []);
 
-  const totalQuestions = 638;
+  const totalQuestions = TOTAL_QUESTIONS;
   const progressValues = Object.values(progress);
   const masteredCount = progressValues.filter(p => p.box >= 4).length;
   const learningCount = progressValues.filter(p => p.box >= 2 && p.box < 4).length;
-  const readiness = totalQuestions > 0 ? (masteredCount / totalQuestions) * 100 : 0;
+
+  // Exam-relevant mastered count
+  const examRelevantMastered = progressValues.filter(p => p.box >= 4 && !isNeverTested(p.questionId)).length;
+  const examReadiness = EXAM_RELEVANT_COUNT > 0 ? (examRelevantMastered / EXAM_RELEVANT_COUNT) * 100 : 0;
+  const overallReadiness = totalQuestions > 0 ? (masteredCount / totalQuestions) * 100 : 0;
 
   // Find weakest section
   const sectionStats = catalog.sections.map(section => {
@@ -52,19 +57,22 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* Quick Stats */}
+      {/* Exam Readiness (prominent) */}
       {mounted && (
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-slate-700 dark:text-slate-200">Prüfungsbereitschaft</h2>
-            <span className="text-2xl font-bold text-navy-600 dark:text-blue-400">{Math.round(readiness)}%</span>
+            <h2 className="font-semibold text-slate-700 dark:text-slate-200">🎯 Prüfungsbereitschaft</h2>
+            <span className="text-2xl font-bold text-navy-600 dark:text-blue-400">{Math.round(examReadiness)}%</span>
           </div>
           <ProgressBar
-            value={readiness}
-            color={readiness >= 65 ? 'bg-green-500' : readiness >= 40 ? 'bg-yellow-500' : 'bg-red-500'}
+            value={examReadiness}
+            color={examReadiness >= 65 ? 'bg-green-500' : examReadiness >= 40 ? 'bg-yellow-500' : 'bg-red-500'}
             height="h-4"
             showLabel={false}
           />
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+            {examRelevantMastered}/{EXAM_RELEVANT_COUNT} prüfungsrelevante Fragen gemeistert
+          </p>
           <div className="grid grid-cols-3 gap-3 mt-4 text-center">
             <div>
               <div className="text-lg font-bold text-green-600 dark:text-green-400">{masteredCount}</div>
@@ -79,8 +87,35 @@ export default function HomePage() {
               <div className="text-xs text-slate-500 dark:text-slate-400">Ungesehen</div>
             </div>
           </div>
+          {/* Overall progress (secondary) */}
+          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+              <span>Gesamtfortschritt</span>
+              <span>{masteredCount}/{totalQuestions}</span>
+            </div>
+            <div className="mt-1">
+              <ProgressBar value={overallReadiness} height="h-1.5" showLabel={false} color="bg-slate-400" />
+            </div>
+          </div>
         </div>
       )}
+
+      {/* Minimal-Modus CTA */}
+      <Link href="/lernen?mode=minimal" className="block">
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl p-5 shadow-lg hover:shadow-xl active:scale-[0.98] transition-all">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">🎯</span>
+            <div className="flex-1">
+              <h3 className="font-bold text-lg">Minimal-Modus</h3>
+              <p className="text-sm opacity-90">Nur was geprüft wird</p>
+              <p className="text-xs opacity-75 mt-1">
+                {EXAM_RELEVANT_COUNT} prüfungsrelevante Fragen (statt {totalQuestions})
+              </p>
+            </div>
+            <span className="text-2xl">→</span>
+          </div>
+        </div>
+      </Link>
 
       {/* Daily Progress */}
       {mounted && (
@@ -152,6 +187,7 @@ export default function HomePage() {
             const sectionProgress = section.questions.map(q => progress[q.id]);
             const mastered = sectionProgress.filter(p => p && p.box >= 4).length;
             const learning = sectionProgress.filter(p => p && p.box >= 2 && p.box < 4).length;
+            const relevance = getSectionRelevanceCount(section.id);
 
             return (
               <SectionCard
@@ -162,6 +198,7 @@ export default function HomePage() {
                 masteredCount={mastered}
                 learningCount={learning}
                 icon={sectionIcons[section.id] || '📘'}
+                relevantCount={relevance.relevant}
               />
             );
           })}

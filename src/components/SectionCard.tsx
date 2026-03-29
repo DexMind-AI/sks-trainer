@@ -10,15 +10,8 @@ interface SectionCardProps {
   masteredCount: number;
   learningCount: number;
   icon: string;
+  relevantCount?: number;
 }
-
-const sectionIcons: Record<string, string> = {
-  navigation: '🧭',
-  schifffahrtsrecht: '⚖️',
-  wetterkunde: '🌤️',
-  seemannschaft1: '⛵',
-  seemannschaft2: '🚤',
-};
 
 export default function SectionCard({
   id,
@@ -27,6 +20,7 @@ export default function SectionCard({
   masteredCount,
   learningCount,
   icon,
+  relevantCount,
 }: SectionCardProps) {
   const progress = totalQuestions > 0 ? (masteredCount / totalQuestions) * 100 : 0;
   const unseenCount = totalQuestions - masteredCount - learningCount;
@@ -35,7 +29,7 @@ export default function SectionCard({
     <Link href={`/lernen?section=${id}`} className="block">
       <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow active:scale-[0.98]">
         <div className="flex items-start gap-3">
-          <span className="text-2xl">{icon || sectionIcons[id] || '📘'}</span>
+          <span className="text-2xl">{icon}</span>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-slate-900 dark:text-white text-sm truncate">{name}</h3>
             <div className="flex gap-3 mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -44,6 +38,11 @@ export default function SectionCard({
               {learningCount > 0 && <span className="text-blue-600 dark:text-blue-400">↻ {learningCount}</span>}
               {unseenCount > 0 && <span>○ {unseenCount}</span>}
             </div>
+            {relevantCount !== undefined && (
+              <div className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                🎯 {relevantCount} von {totalQuestions} prüfungsrelevant
+              </div>
+            )}
             <div className="mt-2">
               <ProgressBar value={progress} height="h-2" showLabel={false} />
             </div>

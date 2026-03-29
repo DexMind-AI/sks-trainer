@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Question } from '@/data/questions';
 import { Rating } from '@/lib/leitner';
+import { getRelevanceBadge, getBoegen, getFrequency } from '@/lib/exam-relevance';
 
 interface FlashcardProps {
   question: Question;
@@ -22,6 +23,10 @@ export default function Flashcard({ question, box, onRate, index, total }: Flash
     4: 'border-blue-400',
     5: 'border-green-400',
   };
+
+  const badge = getRelevanceBadge(question.id);
+  const boegen = getBoegen(question.id);
+  const freq = getFrequency(question.id);
 
   const ratingButtons: { rating: Rating; label: string; emoji: string; color: string; subtitle: string }[] = [
     { rating: 'nochmal', label: 'Nochmal', emoji: '🔄', color: 'bg-red-500 hover:bg-red-600 active:bg-red-700', subtitle: 'Keine Ahnung' },
@@ -44,12 +49,29 @@ export default function Flashcard({ question, box, onRate, index, total }: Flash
       <div
         className={`rounded-2xl border-2 ${boxColors[box] || 'border-slate-300'} bg-white dark:bg-slate-800 shadow-lg overflow-hidden transition-all duration-300`}
       >
+        {/* Relevance badge */}
+        <div className="px-6 pt-4 flex items-center gap-2 flex-wrap">
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${badge.color} ${badge.textColor}`}>
+            {badge.emoji} {badge.label}
+          </span>
+          {boegen.length > 0 && (
+            <span className="text-xs text-slate-400 dark:text-slate-500">
+              Bogen {boegen.join(', ')}
+            </span>
+          )}
+          {freq === 0 && (
+            <span className="text-xs text-slate-400 dark:text-slate-500 italic">
+              Nicht prüfungsrelevant
+            </span>
+          )}
+        </div>
+
         {/* Question */}
-        <div className="p-6">
+        <div className="p-6 pt-3">
           <div className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-2">
             {question.id}
           </div>
-          <p className="text-lg font-medium text-slate-900 dark:text-white leading-relaxed">
+          <p className={`text-lg font-medium leading-relaxed ${freq === 0 ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'}`}>
             {question.question}
           </p>
         </div>
