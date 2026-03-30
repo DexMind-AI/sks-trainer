@@ -5,6 +5,9 @@ import { Question } from '@/data/questions';
 import { generateRandomExam, getExamResult, EXAM_TIME_LIMIT, ExamSheet } from '@/lib/exam';
 import { saveExamResult, getExamHistory, ExamResult } from '@/lib/storage';
 import { getOfficialBogen, getAllBogenNumbers, getRandomBogenNumber, getRelevanceBadge, getBoegen } from '@/lib/exam-relevance';
+import { getGamificationState, checkExamAchievements, GamificationState, Achievement } from '@/lib/gamification';
+import { highlightKeywords, extractKeywords } from '@/lib/keywords';
+import AchievementToast from '@/components/AchievementToast';
 import Link from 'next/link';
 
 type ExamPhase = 'setup' | 'running' | 'review';
@@ -22,6 +25,7 @@ export default function PruefungPage() {
   const [seemType, setSeemType] = useState<'1' | '2' | 'random'>('random');
   const [selectedBogen, setSelectedBogen] = useState<number | null>(null);
   const [lastCompletedBogen, setLastCompletedBogen] = useState<number | null>(null);
+  const [newAchievements, setNewAchievements] = useState<Achievement[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -50,7 +54,6 @@ export default function PruefungPage() {
     let newExam: ExamSheet;
     
     if (bogenNum !== undefined) {
-      // Official bogen
       const questions = getOfficialBogen(bogenNum);
       newExam = {
         id: `bogen-${bogenNum}-${Date.now()}`,
@@ -108,7 +111,6 @@ export default function PruefungPage() {
       })) || [],
     };
 
-    // Track which bogen was completed
     const bogenMatch = exam?.name.match(/Prüfungsbogen (\d+)/);
     if (bogenMatch) {
       setLastCompletedBogen(parseInt(bogenMatch[1]));
@@ -116,6 +118,14 @@ export default function PruefungPage() {
 
     saveExamResult(examResult);
     setExamHistory(prev => [...prev, examResult]);
+
+    // Gamification: check exam achievements
+    const gamState = getGamificationState();
+    const achieved = checkExamAchievements(gamState, result.totalScore);
+    if (achieved.length > 0) {
+      setNewAchievements(achieved);
+    }
+
     setPhase('review');
   }, [exam, timeLeft]);
 
@@ -126,6 +136,25 @@ export default function PruefungPage() {
   };
 
   const bogenNumbers = getAllBogenNumbers();
+
+  // Render highlighted answer for exam review
+  const renderHighlightedAnswer = (question: Question) => {
+    const extracted = extractKeywords(question.answer);
+    const segments = highlightKeywords(question.answer, question.keywords, extracted);
+    return (
+      <span className="whitespace-pre-line">
+        {segments.map((seg, i) => (
+          seg.isKeyword ? (
+            <span key={i} className="bg-amber-100 dark:bg-amber-900/30 font-semibold rounded px-0.5">
+              {seg.text}
+            </span>
+          ) : (
+            <span key={i}>{seg.text}</span>
+          )
+        ))}
+      </span>
+    );
+  };
 
   // Setup phase
   if (phase === 'setup') {
@@ -314,7 +343,6 @@ export default function PruefungPage() {
 
         {/* Question */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
-          {/* Relevance badge */}
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className="text-xs text-slate-400 dark:text-slate-500">{question.id}</span>
             <span className={`inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full text-[10px] font-medium ${badge.color} ${badge.textColor}`}>
@@ -331,9 +359,14 @@ export default function PruefungPage() {
           {showAnswer && (
             <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 animate-fadeIn">
               <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400 mb-1">Musterantwort</div>
-              <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line">
-                {question.answer}
+              <p className="text-sm text-slate-700 dark:text-slate-300">
+                {renderHighlightedAnswer(question)}
               </p>
+              {question.keywords.length > 0 && (
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+                  🔑 Schlüsselbegriffe sind hervorgehoben
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -398,6 +431,10 @@ export default function PruefungPage() {
             {result.totalScore}/{result.maxScore}
           </p>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Punkte</p>
+          {/* XP bonus */}
+          <p className="text-sm text-amber-600 dark:text-amber-400 mt-2 font-semibold">
+            +100 XP für abgeschlossene Prüfung
+          </p>
         </div>
 
         {/* Score breakdown */}
@@ -464,7 +501,9 @@ export default function PruefungPage() {
                           </span>
                         </div>
                         <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{q.question}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 whitespace-pre-line">{q.answer}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          {renderHighlightedAnswer(q)}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -494,6 +533,14 @@ export default function PruefungPage() {
             Zurück
           </Link>
         </div>
+
+        {/* Achievement Toast */}
+        {newAchievements.length > 0 && (
+          <AchievementToast
+            achievements={newAchievements}
+            onDismiss={() => setNewAchievements([])}
+          />
+        )}
       </div>
     );
   }

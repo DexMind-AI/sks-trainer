@@ -4,12 +4,14 @@ import { useEffect, useState } from 'react';
 import { catalog } from '@/data/questions';
 import { getAllProgress, getStats, getExamHistory, resetAllData, exportData, importData, setDailyGoal } from '@/lib/storage';
 import { CardProgress } from '@/lib/leitner';
+import { getGamificationState, saveGamificationState, GamificationState } from '@/lib/gamification';
 import ProgressBar from '@/components/ProgressBar';
 
 export default function StatistikPage() {
   const [progress, setProgress] = useState<Record<string, CardProgress>>({});
   const [stats, setStats] = useState({ totalReviews: 0, todayReviews: 0, streak: 0, lastStudyDate: '', dailyGoal: 20 });
   const [examHistory, setExamHistory] = useState<ReturnType<typeof getExamHistory>>([]);
+  const [gamification, setGamification] = useState<GamificationState | null>(null);
   const [mounted, setMounted] = useState(false);
   const [showReset, setShowReset] = useState(false);
   const [goalInput, setGoalInput] = useState(20);
@@ -18,17 +20,22 @@ export default function StatistikPage() {
     setProgress(getAllProgress());
     setStats(getStats());
     setExamHistory(getExamHistory());
+    setGamification(getGamificationState());
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    setGoalInput(stats.dailyGoal);
-  }, [stats.dailyGoal]);
+    if (gamification) {
+      setGoalInput(gamification.dailyGoal.target);
+    } else {
+      setGoalInput(stats.dailyGoal);
+    }
+  }, [stats.dailyGoal, gamification]);
 
   if (!mounted) return <div className="py-12 text-center text-slate-400">Laden...</div>;
 
   const progressValues = Object.values(progress);
-  const boxCounts = [0, 0, 0, 0, 0]; // boxes 1-5
+  const boxCounts = [0, 0, 0, 0, 0];
   progressValues.forEach(p => {
     if (p.box >= 1 && p.box <= 5) boxCounts[p.box - 1]++;
   });
@@ -91,10 +98,22 @@ export default function StatistikPage() {
 
   const handleReset = () => {
     resetAllData();
+    // Also reset gamification
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('sks-gamification');
+    }
     setProgress({});
     setStats({ totalReviews: 0, todayReviews: 0, streak: 0, lastStudyDate: '', dailyGoal: 20 });
     setExamHistory([]);
+    setGamification(getGamificationState());
     setShowReset(false);
+  };
+
+  const updateGamificationSetting = (key: keyof GamificationState, value: unknown) => {
+    if (!gamification) return;
+    const updated = { ...gamification, [key]: value };
+    saveGamificationState(updated);
+    setGamification(updated);
   };
 
   return (
@@ -110,7 +129,7 @@ export default function StatistikPage() {
             <div className="text-xs text-slate-500 dark:text-slate-400">Wiederholungen gesamt</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-orange-500">🔥 {stats.streak}</div>
+            <div className="text-2xl font-bold text-orange-500">🔥 {gamification?.streak.current ?? stats.streak}</div>
             <div className="text-xs text-slate-500 dark:text-slate-400">Tage-Streak</div>
           </div>
           <div>
@@ -178,32 +197,62 @@ export default function StatistikPage() {
         </div>
       </div>
 
-      {/* Daily Goal */}
+      {/* Settings */}
       <div className="bg-white dark:bg-slate-800 rounded-xl p-5 border border-slate-200 dark:border-slate-700">
-        <h2 className="font-semibold text-slate-700 dark:text-slate-200 mb-3">Tagesziel</h2>
-        <div className="flex items-center gap-3">
-          <input
-            type="range"
-            min="5"
-            max="100"
-            step="5"
-            value={goalInput}
-            onChange={(e) => setGoalInput(parseInt(e.target.value))}
-            className="flex-1"
-          />
-          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 w-16 text-right">
-            {goalInput} / Tag
-          </span>
+        <h2 className="font-semibold text-slate-700 dark:text-slate-200 mb-3">⚙️ Einstellungen</h2>
+        
+        {/* Daily Goal */}
+        <div className="mb-4">
+          <h3 className="text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Tagesziel</h3>
+          <div className="grid grid-cols-4 gap-2">
+            {[10, 20, 30, 50].map(goal => (
+              <button
+                key={goal}
+                onClick={() => {
+                  setGoalInput(goal);
+                  setDailyGoal(goal);
+                  setStats(prev => ({ ...prev, dailyGoal: goal }));
+                  if (gamification) {
+                    const updated = { ...gamification, dailyGoal: { ...gamification.dailyGoal, target: goal } };
+                    saveGamificationState(updated);
+                    setGamification(updated);
+                  }
+                }}
+                className={`py-2 rounded-lg text-sm font-medium transition-colors ${
+                  goalInput === goal
+                    ? 'bg-navy-600 text-white'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                {goal} / Tag
+              </button>
+            ))}
+          </div>
         </div>
-        <button
-          onClick={() => {
-            setDailyGoal(goalInput);
-            setStats(prev => ({ ...prev, dailyGoal: goalInput }));
-          }}
-          className="mt-2 px-4 py-1.5 bg-navy-600 text-white text-xs rounded-lg"
-        >
-          Speichern
-        </button>
+
+        {/* Gamification toggles */}
+        {gamification && (
+          <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+            <ToggleSetting
+              label="🤖 KI-Bewertung"
+              description="Antworten automatisch von KI prüfen lassen"
+              enabled={gamification.aiCheckEnabled}
+              onChange={(v) => updateGamificationSetting('aiCheckEnabled', v)}
+            />
+            <ToggleSetting
+              label="🏅 Gamification"
+              description="XP, Ränge und Erfolge anzeigen"
+              enabled={gamification.gamificationVisible}
+              onChange={(v) => updateGamificationSetting('gamificationVisible', v)}
+            />
+            <ToggleSetting
+              label="🔊 Sound-Effekte"
+              description="Töne bei Aktionen (kommt bald)"
+              enabled={gamification.soundEnabled}
+              onChange={(v) => updateGamificationSetting('soundEnabled', v)}
+            />
+          </div>
+        )}
       </div>
 
       {/* Data Management */}
@@ -233,7 +282,7 @@ export default function StatistikPage() {
         {showReset && (
           <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
             <p className="text-sm text-red-700 dark:text-red-400 mb-2">
-              Alle Lernfortschritte und Prüfungsergebnisse werden gelöscht. Dieser Vorgang kann nicht rückgängig gemacht werden!
+              Alle Lernfortschritte, Prüfungsergebnisse und Gamification-Daten werden gelöscht. Dieser Vorgang kann nicht rückgängig gemacht werden!
             </p>
             <div className="flex gap-2">
               <button
@@ -252,6 +301,34 @@ export default function StatistikPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function ToggleSetting({ label, description, enabled, onChange }: {
+  label: string;
+  description: string;
+  enabled: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{label}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">{description}</p>
+      </div>
+      <button
+        onClick={() => onChange(!enabled)}
+        className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
+          enabled ? 'bg-navy-600' : 'bg-slate-300 dark:bg-slate-600'
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+            enabled ? 'translate-x-5' : 'translate-x-0'
+          }`}
+        />
+      </button>
     </div>
   );
 }

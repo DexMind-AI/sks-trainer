@@ -7,8 +7,8 @@ const navItems = [
   { href: '/', label: 'Start', icon: '🏠' },
   { href: '/lernen', label: 'Lernen', icon: '📚' },
   { href: '/navigation', label: 'Navigation', icon: '🧭' },
-  { href: '/fragen', label: 'Fragen', icon: '🔍' },
   { href: '/pruefung', label: 'Prüfung', icon: '📝' },
+  { href: '/erfolge', label: 'Erfolge', icon: '🏅' },
   { href: '/statistik', label: 'Statistik', icon: '📊' },
 ];
 

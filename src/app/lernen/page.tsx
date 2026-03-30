@@ -6,14 +6,17 @@ import { catalog, Question } from '@/data/questions';
 import { Rating, CardProgress, updateCard, isDue, createNewCard } from '@/lib/leitner';
 import { getAllProgress, getCardProgress, saveCardProgress, recordReview } from '@/lib/storage';
 import { getExamRelevantQuestions, getHighValueQuestions, isNeverTested, EXAM_RELEVANT_COUNT } from '@/lib/exam-relevance';
+import { getGamificationState, awardXP, GamificationState, Achievement, GamificationUpdate } from '@/lib/gamification';
 import Flashcard from '@/components/Flashcard';
+import AchievementToast from '@/components/AchievementToast';
+import { XPFloat, LevelUpOverlay, XPBar } from '@/components/XPBar';
+import type { XPGain, Level } from '@/lib/gamification';
 import Link from 'next/link';
 
 function LernenContent() {
   const searchParams = useSearchParams();
   const sectionFilter = searchParams.get('section');
-  const mode = searchParams.get('mode'); // 'minimal' for exam-relevant only
-
+  const mode = searchParams.get('mode');
   const isMinimalMode = mode === 'minimal';
 
   const [queue, setQueue] = useState<Question[]>([]);
@@ -21,13 +24,23 @@ function LernenContent() {
   const [sessionStats, setSessionStats] = useState({ reviewed: 0, correct: 0 });
   const [cardProgress, setCardProgress] = useState<CardProgress | null>(null);
   const [isComplete, setIsComplete] = useState(false);
+  const [gamification, setGamification] = useState<GamificationState | null>(null);
+
+  // Gamification UI state
+  const [xpGains, setXpGains] = useState<XPGain[]>([]);
+  const [showXP, setShowXP] = useState(false);
+  const [newAchievements, setNewAchievements] = useState<Achievement[]>([]);
+  const [levelUp, setLevelUp] = useState<Level | null>(null);
+
+  useEffect(() => {
+    setGamification(getGamificationState());
+  }, []);
 
   const buildQueue = useCallback(() => {
     const progress = getAllProgress();
     let questions: Question[];
 
     if (isMinimalMode) {
-      // Minimal mode: only exam-relevant questions, high-value first
       const highValue = getHighValueQuestions();
       const examRelevant = getExamRelevantQuestions();
       const highValueIds = new Set(highValue.map(q => q.id));
@@ -40,33 +53,27 @@ function LernenContent() {
       questions = catalog.sections.flatMap(s => s.questions);
     }
 
-    // Prioritize: due cards first, then unseen, then by box (lowest first)
     const now = Date.now();
     const scored = questions.map((q, originalIndex) => {
       const p = progress[q.id];
       let priority = 0;
 
       if (!p) {
-        // Unseen - high priority, but in minimal mode preserve high-value ordering
         priority = isMinimalMode ? 100 + (originalIndex < 42 ? 50 : 0) : 100;
       } else if (isDue(p, now)) {
-        // Due for review - highest priority, lower box = more urgent
         priority = 200 - p.box * 10;
       } else {
-        // Not due yet - low priority
         priority = p.box;
       }
 
       return { question: q, priority, progress: p };
     });
 
-    // Sort by priority (highest first), shuffle within same priority
     scored.sort((a, b) => {
       if (Math.abs(a.priority - b.priority) > 5) return b.priority - a.priority;
       return Math.random() - 0.5;
     });
 
-    // Take top 50 for this session
     const sessionQueue = scored.slice(0, 50).map(s => s.question);
     return sessionQueue;
   }, [sectionFilter, isMinimalMode]);
@@ -87,10 +94,54 @@ function LernenContent() {
     saveCardProgress(updated);
     recordReview();
 
+    const isCorrect = rating === 'gut' || rating === 'leicht';
     setSessionStats(prev => ({
       reviewed: prev.reviewed + 1,
-      correct: prev.correct + (rating === 'gut' || rating === 'leicht' ? 1 : 0),
+      correct: prev.correct + (isCorrect ? 1 : 0),
     }));
+
+    // Gamification: award XP
+    if (gamification) {
+      const xpRating = isCorrect ? 'correct' as const : rating === 'schwer' ? 'partial' as const : 'wrong' as const;
+      
+      // Build section mastery context
+      const allProgress = getAllProgress();
+      const sectionMastery: Record<string, { mastered: number; total: number }> = {};
+      catalog.sections.forEach(section => {
+        const mastered = section.questions.filter(q => {
+          const p = allProgress[q.id];
+          return p && p.box >= 4;
+        }).length;
+        sectionMastery[section.id] = { mastered, total: section.questions.length };
+      });
+
+      const examRelevantMastered = Object.values(allProgress).filter(
+        p => p.box >= 4 && !isNeverTested(p.questionId)
+      ).length;
+
+      const update = awardXP(gamification, xpRating, {
+        sectionMastery,
+        examRelevantMastered,
+      });
+
+      setGamification(update.state);
+
+      // Show XP gains
+      if (update.xpGains.length > 0) {
+        setXpGains(update.xpGains);
+        setShowXP(true);
+      }
+
+      // Show achievements
+      if (update.newAchievements.length > 0) {
+        setNewAchievements(update.newAchievements);
+      }
+
+      // Show level up
+      if (update.levelUp) {
+        setLevelUp(update.levelUp);
+      }
+    }
 
     // If rated "nochmal", add back to queue
     if (rating === 'nochmal') {
@@ -114,8 +165,6 @@ function LernenContent() {
     : sectionFilter
       ? catalog.sections.find(s => s.id === sectionFilter)?.name || 'Unbekannt'
       : 'Alle Bereiche';
-
-  const totalLabel = isMinimalMode ? EXAM_RELEVANT_COUNT : undefined;
 
   if (queue.length === 0) {
     return (
@@ -169,6 +218,14 @@ function LernenContent() {
             </div>
           </div>
         </div>
+
+        {/* Gamification summary */}
+        {gamification && gamification.gamificationVisible && (
+          <div className="mt-4 max-w-xs mx-auto">
+            <XPBar state={gamification} compact />
+          </div>
+        )}
+
         <div className="flex gap-3 justify-center mt-6">
           <button
             onClick={() => {
@@ -178,6 +235,11 @@ function LernenContent() {
               const q = buildQueue();
               setQueue(q);
               if (q.length > 0) setCardProgress(getCardProgress(q[0].id));
+              // Reset session counter
+              if (gamification) {
+                const g = { ...gamification, sessionQuestions: 0 };
+                setGamification(g);
+              }
             }}
             className="px-5 py-3 bg-navy-600 text-white rounded-xl font-semibold"
           >
@@ -209,6 +271,13 @@ function LernenContent() {
         </span>
       </div>
 
+      {/* Compact XP bar */}
+      {gamification && gamification.gamificationVisible && (
+        <div className="mb-4">
+          <XPBar state={gamification} compact />
+        </div>
+      )}
+
       {/* Minimal mode indicator */}
       {isMinimalMode && (
         <div className="mb-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2 border border-amber-200 dark:border-amber-800">
@@ -227,7 +296,26 @@ function LernenContent() {
           onRate={handleRate}
           index={currentIndex}
           total={queue.length}
+          aiCheckEnabled={gamification?.aiCheckEnabled ?? false}
         />
+      )}
+
+      {/* XP Float */}
+      {showXP && xpGains.length > 0 && (
+        <XPFloat gains={xpGains} onDone={() => { setShowXP(false); setXpGains([]); }} />
+      )}
+
+      {/* Achievement Toast */}
+      {newAchievements.length > 0 && (
+        <AchievementToast
+          achievements={newAchievements}
+          onDismiss={() => setNewAchievements([])}
+        />
+      )}
+
+      {/* Level Up Overlay */}
+      {levelUp && (
+        <LevelUpOverlay level={levelUp} onDismiss={() => setLevelUp(null)} />
       )}
     </div>
   );

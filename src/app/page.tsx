@@ -5,18 +5,22 @@ import { catalog } from '@/data/questions';
 import { getAllProgress, getStats } from '@/lib/storage';
 import { CardProgress } from '@/lib/leitner';
 import { EXAM_RELEVANT_COUNT, TOTAL_QUESTIONS, getSectionRelevanceCount, isNeverTested } from '@/lib/exam-relevance';
+import { getGamificationState, GamificationState, isStreakAtRisk, getToday } from '@/lib/gamification';
 import SectionCard from '@/components/SectionCard';
 import ProgressBar from '@/components/ProgressBar';
+import { XPBar } from '@/components/XPBar';
 import Link from 'next/link';
 
 export default function HomePage() {
   const [progress, setProgress] = useState<Record<string, CardProgress>>({});
   const [stats, setStats] = useState({ totalReviews: 0, todayReviews: 0, streak: 0, lastStudyDate: '', dailyGoal: 20 });
+  const [gamification, setGamification] = useState<GamificationState | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setProgress(getAllProgress());
     setStats(getStats());
+    setGamification(getGamificationState());
     setMounted(true);
   }, []);
 
@@ -25,12 +29,10 @@ export default function HomePage() {
   const masteredCount = progressValues.filter(p => p.box >= 4).length;
   const learningCount = progressValues.filter(p => p.box >= 2 && p.box < 4).length;
 
-  // Exam-relevant mastered count
   const examRelevantMastered = progressValues.filter(p => p.box >= 4 && !isNeverTested(p.questionId)).length;
   const examReadiness = EXAM_RELEVANT_COUNT > 0 ? (examRelevantMastered / EXAM_RELEVANT_COUNT) * 100 : 0;
   const overallReadiness = totalQuestions > 0 ? (masteredCount / totalQuestions) * 100 : 0;
 
-  // Find weakest section
   const sectionStats = catalog.sections.map(section => {
     const sectionProgress = section.questions.map(q => progress[q.id]);
     const mastered = sectionProgress.filter(p => p && p.box >= 4).length;
@@ -47,6 +49,12 @@ export default function HomePage() {
     seemannschaft2: '🚤',
   };
 
+  const streakAtRisk = gamification ? isStreakAtRisk(gamification) : false;
+  const dailyGoalProgress = gamification
+    ? (gamification.dailyGoal.todayCount / gamification.dailyGoal.target) * 100
+    : 0;
+  const dailyGoalReached = dailyGoalProgress >= 100;
+
   return (
     <div className="py-6 space-y-6">
       {/* Header */}
@@ -57,7 +65,60 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* Exam Readiness (prominent) */}
+      {/* Gamification: XP Bar + Rank */}
+      {mounted && gamification && gamification.gamificationVisible && (
+        <Link href="/erfolge">
+          <XPBar state={gamification} />
+        </Link>
+      )}
+
+      {/* Streak & Daily Goal Row */}
+      {mounted && gamification && gamification.gamificationVisible && (
+        <div className="grid grid-cols-2 gap-3">
+          {/* Streak */}
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🔥</span>
+              <div>
+                <div className="text-xl font-bold text-orange-500">
+                  {gamification.streak.current} Tage
+                </div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">Streak</div>
+              </div>
+            </div>
+            {streakAtRisk && gamification.streak.current > 0 && (
+              <p className="text-xs text-red-500 mt-1 font-medium">
+                ⚠️ Streak in Gefahr! Heute noch lernen!
+              </p>
+            )}
+          </div>
+
+          {/* Daily Goal */}
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-slate-500 dark:text-slate-400">Tagesziel</span>
+              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                {gamification.dailyGoal.todayCount}/{gamification.dailyGoal.target}
+              </span>
+            </div>
+            <div className="w-full h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  dailyGoalReached ? 'bg-green-500' : 'bg-amber-500'
+                }`}
+                style={{ width: `${Math.min(100, dailyGoalProgress)}%` }}
+              />
+            </div>
+            {dailyGoalReached && (
+              <p className="text-xs text-green-600 dark:text-green-400 mt-1 font-medium">
+                🎉 Tagesziel erreicht!
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Exam Readiness */}
       {mounted && (
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700">
           <div className="flex items-center justify-between mb-3">
@@ -87,7 +148,6 @@ export default function HomePage() {
               <div className="text-xs text-slate-500 dark:text-slate-400">Ungesehen</div>
             </div>
           </div>
-          {/* Overall progress (secondary) */}
           <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
               <span>Gesamtfortschritt</span>
@@ -117,8 +177,8 @@ export default function HomePage() {
         </div>
       </Link>
 
-      {/* Daily Progress */}
-      {mounted && (
+      {/* Daily Progress (legacy, merged with gamification) */}
+      {mounted && (!gamification || !gamification.gamificationVisible) && (
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700">
           <div className="flex items-center justify-between">
             <div>
