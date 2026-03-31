@@ -239,6 +239,20 @@ export default function HomePage() {
         </Link>
       </div>
 
+      {/* Lernhilfen Link */}
+      <Link href="/lernhilfen" className="block">
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:shadow-md active:scale-[0.98] transition-all">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🎬</span>
+            <div className="flex-1">
+              <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-100">Lernhilfen</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Podcast, YouTube-Videos, Lehrbücher & Prüfungsmaterial</p>
+            </div>
+            <span className="text-slate-400">→</span>
+          </div>
+        </div>
+      </Link>
+
       {/* Sections */}
       <div>
         <h2 className="font-semibold text-slate-700 dark:text-slate-200 mb-3">Bereiche</h2>
