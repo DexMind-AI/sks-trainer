@@ -9,18 +9,15 @@ export default function Footer() {
     <footer className="py-4 px-4 text-center text-xs text-slate-500 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800 mt-6 mb-16">
       <div className="max-w-lg mx-auto">
         <p className="mb-2">
-          SKS Trainer &copy; {currentYear} —{' '}
+          Made by Claudia ✨ @{' '}
           <Link
             href="https://dexmind.ai"
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
           >
-            Made with ❤️ by DexMind AI
+            DexMind AI
           </Link>
-        </p>
-        <p className="text-[10px] opacity-75">
-          Die App ist kostenlos, quelloffen und verwendet OpenAI GPT‑4o‑mini für KI‑Bewertungen.
         </p>
         <div className="flex justify-center gap-4 mt-3">
           <Link

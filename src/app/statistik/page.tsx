@@ -310,7 +310,7 @@ export default function StatistikPage() {
             <strong>SKS Trainer</strong> ist ein kostenloses Lernwerkzeug für die Theorieprüfung zum Sportküstenschifferschein.
           </p>
           <p>
-            Entwickelt von{' '}
+            Entwickelt von Claudia ✨ @{' '}
             <a
               href="https://dexmind.ai"
               target="_blank"
@@ -318,8 +318,7 @@ export default function StatistikPage() {
               className="underline text-navy-600 dark:text-blue-400 hover:text-navy-800 dark:hover:text-blue-300"
             >
               DexMind AI
-            </a>{' '}
-            &mdash; einer AI-Agentenplattform für autonome Projekte.
+            </a>
           </p>
           <p>
             Die App nutzt OpenAI GPT‑4o‑mini für KI‑Bewertungen, ist{' '}
@@ -342,7 +341,7 @@ export default function StatistikPage() {
             </a>.
           </p>
           <p className="text-xs pt-2 border-t border-slate-100 dark:border-slate-700">
-            Version 1.2.0 &middot; © {new Date().getFullYear()} DexMind AI
+            Version 1.2.0 &middot; © {new Date().getFullYear()} Claudia @ DexMind AI
           </p>
         </div>
       </div>
