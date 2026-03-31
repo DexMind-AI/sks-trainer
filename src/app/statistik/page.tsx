@@ -301,6 +301,51 @@ export default function StatistikPage() {
           </div>
         )}
       </div>
+
+      {/* About */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl p-5 border border-slate-200 dark:border-slate-700">
+        <h2 className="font-semibold text-slate-700 dark:text-slate-200 mb-3">ℹ️ Über diese App</h2>
+        <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
+          <p>
+            <strong>SKS Trainer</strong> ist ein kostenloses Lernwerkzeug für die Theorieprüfung zum Sportküstenschifferschein.
+          </p>
+          <p>
+            Entwickelt von{' '}
+            <a
+              href="https://dexmind.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline text-navy-600 dark:text-blue-400 hover:text-navy-800 dark:hover:text-blue-300"
+            >
+              DexMind AI
+            </a>{' '}
+            &mdash; einer AI-Agentenplattform für autonome Projekte.
+          </p>
+          <p>
+            Die App nutzt OpenAI GPT‑4o‑mini für KI‑Bewertungen, ist{' '}
+            <a
+              href="https://github.com/DexMind-AI/sks-trainer"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline text-navy-600 dark:text-blue-400 hover:text-navy-800 dark:hover:text-blue-300"
+            >
+              quelloffen auf GitHub
+            </a>{' '}
+            und läuft auf{' '}
+            <a
+              href="https://forge.dexmind.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline text-navy-600 dark:text-blue-400 hover:text-navy-800 dark:hover:text-blue-300"
+            >
+              forge.dexmind.ai
+            </a>.
+          </p>
+          <p className="text-xs pt-2 border-t border-slate-100 dark:border-slate-700">
+            Version 1.2.0 &middot; © {new Date().getFullYear()} DexMind AI
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import Navigation from '@/components/Navigation';
+import Footer from '@/components/Footer';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -14,6 +15,10 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: 'SKS Trainer',
   },
+  authors: [{ name: 'DexMind AI' }],
+  keywords: ['SKS', 'Sportküstenschifferschein', 'Segeln', 'Prüfung', 'Theorie', 'Lernen'],
+  creator: 'DexMind AI',
+  publisher: 'DexMind AI',
 };
 
 export const viewport: Viewport = {
@@ -35,9 +40,12 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body className={`${inter.className} antialiased`}>
-        <main className="min-h-screen pb-20 max-w-lg mx-auto px-4">
-          {children}
-        </main>
+        <div className="flex flex-col min-h-screen max-w-lg mx-auto px-4">
+          <main className="flex-grow pb-4">
+            {children}
+          </main>
+          <Footer />
+        </div>
         <Navigation />
       </body>
     </html>
