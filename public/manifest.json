@@ -2,6 +2,7 @@
   "name": "SKS Trainer",
   "short_name": "SKS",
   "description": "Prüfungsvorbereitung für den Sportküstenschifferschein",
+  "author": "DexMind AI",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f8fafc",
