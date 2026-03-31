@@ -7,7 +7,9 @@ import { saveExamResult, getExamHistory, ExamResult } from '@/lib/storage';
 import { getOfficialBogen, getAllBogenNumbers, getRandomBogenNumber, getRelevanceBadge, getBoegen } from '@/lib/exam-relevance';
 import { getGamificationState, checkExamAchievements, GamificationState, Achievement } from '@/lib/gamification';
 import { highlightKeywords, extractKeywords } from '@/lib/keywords';
+import { getExplanation } from '@/data/explanations';
 import AchievementToast from '@/components/AchievementToast';
+import ExplanationBox from '@/components/ExplanationBox';
 import Link from 'next/link';
 
 type ExamPhase = 'setup' | 'running' | 'review';
@@ -488,13 +490,14 @@ export default function PruefungPage() {
               {exam.questions.map((q, i) => {
                 if (scores[i] === 2) return null;
                 const qBadge = getRelevanceBadge(q.id);
+                const explanation = getExplanation(q.id);
                 return (
                   <div key={q.id} className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
                     <div className="flex items-start gap-2">
-                      <span className={`text-sm font-bold ${scores[i] === 0 ? 'text-red-500' : 'text-yellow-500'}`}>
+                      <span className={`text-sm font-bold flex-shrink-0 ${scores[i] === 0 ? 'text-red-500' : 'text-yellow-500'}`}>
                         {scores[i]}P
                       </span>
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 mb-1">
                           <span className={`inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full text-[10px] font-medium ${qBadge.color} ${qBadge.textColor}`}>
                             {qBadge.emoji} {qBadge.label}
@@ -504,6 +507,10 @@ export default function PruefungPage() {
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                           {renderHighlightedAnswer(q)}
                         </p>
+                        {/* Explanation expanded by default in review */}
+                        {explanation && (
+                          <ExplanationBox text={explanation} defaultOpen={true} />
+                        )}
                       </div>
                     </div>
                   </div>

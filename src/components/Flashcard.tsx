@@ -6,6 +6,8 @@ import { Rating } from '@/lib/leitner';
 import { getRelevanceBadge, getBoegen, getFrequency } from '@/lib/exam-relevance';
 import { highlightKeywords, extractKeywords } from '@/lib/keywords';
 import AnswerChecker from './AnswerChecker';
+import ExplanationBox from './ExplanationBox';
+import { getExplanation } from '@/data/explanations';
 
 interface FlashcardProps {
   question: Question;
@@ -82,6 +84,8 @@ export default function Flashcard({ question, box, onRate, index, total, aiCheck
     );
   };
 
+  const explanation = getExplanation(question.id);
+
   return (
     <div className="w-full max-w-lg mx-auto">
       {/* Progress indicator */}
@@ -157,6 +161,10 @@ export default function Flashcard({ question, box, onRate, index, total, aiCheck
                   🔑 Schlüsselbegriffe sind hervorgehoben — diese muss der Prüfer in deiner Antwort finden
                 </p>
               </>
+            )}
+            {/* Explanation (collapsible, initially closed) */}
+            {explanation && (
+              <ExplanationBox text={explanation} defaultOpen={false} />
             )}
           </div>
         )}

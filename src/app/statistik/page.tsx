@@ -340,6 +340,20 @@ export default function StatistikPage() {
               forge.dexmind.ai
             </a>.
           </p>
+
+          {/* Lehrbuch-Empfehlung */}
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
+            <p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+              📚 Empfohlenes Lehrbuch
+            </p>
+            <p className="text-xs">
+              <strong>&quot;Sportküstenschifferschein &amp; SBF See&quot;</strong> (Delius Klasing)
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Für vertiefendes Hintergrundwissen zur Prüfungsvorbereitung.
+            </p>
+          </div>
+
           <p className="text-xs pt-2 border-t border-slate-100 dark:border-slate-700">
             Version 1.2.0 &middot; © {new Date().getFullYear()} Claudia @ DexMind AI
           </p>
